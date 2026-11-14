@@ -14,11 +14,12 @@ bpy needs Python 3.13 on Apple Silicon (arm64) or another platform with a bpy wh
 
 ## Run
 
-    .venv/bin/python kit/smoke.py          # renders out/smoke.png
+    .venv/bin/python kit/smoke.py                 # renders out/smoke.png
+    .venv/bin/python find-the-ring/desk.py --big  # renders out/desk.png at 1920 x 1080
     .venv/bin/python -m unittest discover -s test
 
 ## Layout
 
 - `kit/`: what two scenes use: lights, materials, camera rigs, the render setup.
-- `find-the-ring/`: the scene for Find the Ring.
+- `find-the-ring/`: the scenes for Find the Ring. `desk.py` is the house detective's office.
 - `test/`: a smoke render and the secret check.
