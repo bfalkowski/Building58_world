@@ -25,5 +25,6 @@ bpy needs Python 3.13 on Apple Silicon (arm64) or another platform with a bpy wh
 
 - `kit/`: what two scenes use: lights, materials, camera rigs, the render setup, the glTF export
   and `viewer.html`, a browser page (three.js from a CDN) that loads a scene's .glb to orbit it.
-- `find-the-ring/`: the scenes for Find the Ring. `desk.py` is the house detective's office.
+- `find-the-ring/`: the scenes for Find the Ring. `desk.py` is the house detective's office,
+  `club.py` the main room.
 - `test/`: a smoke render and the secret check.

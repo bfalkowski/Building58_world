@@ -55,11 +55,12 @@ def text(name, body, at, size, mat=None, rot=(math.pi / 2, 0, 0), extrude=0.002)
     return _finish(obj, name, mat)
 
 
-def light(kind, at, energy, color=(1, 1, 1), rot=(0, 0, 0), size=None, spot=None, blend=0.15):
+def light(kind, at, energy, color=(1, 1, 1), rot=(0, 0, 0), size=None, spot=None, blend=0.15, shadow=True):
     bpy.ops.object.light_add(type=kind, location=at, rotation=rot)
     obj = bpy.context.object
     obj.data.energy = energy
     obj.data.color = color
+    obj.data.use_shadow = shadow
     if size is not None:
         if kind == "AREA":
             obj.data.size = size
@@ -91,3 +92,29 @@ def haze(scene, density=0.02, color=(0.55, 0.6, 0.7)):
     vol.inputs["Density"].default_value = density
     vol.inputs["Color"].default_value = (*color, 1)
     nt.links.new(vol.outputs["Volume"], nt.nodes["World Output"].inputs["Volume"])
+
+
+def sphere(name, radius, at, mat=None, scale=(1, 1, 1)):
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=at, segments=24, ring_count=12)
+    obj = bpy.context.object
+    obj.scale = scale
+    bpy.ops.object.shade_smooth()
+    return _finish(obj, name, mat)
+
+
+def figure(name, at, mats, sitting=False, hat=True):
+    """A plain person, standing on `at` or sitting on a seat at `at`: legs, body, head and a hat.
+    No face and no likeness. mats needs "coat", "skin" and "hat"."""
+    x, y, z = at
+    waist = z if sitting else z + 0.85
+    if not sitting:
+        for side in (-1, 1):
+            cylinder(f"{name} leg {side}", 0.075, 0.85, (x + side * 0.09, y, z + 0.425), mats["coat"], verts=12)
+    body = cylinder(f"{name} body", 0.2, 0.6, (x, y, waist + 0.3), mats["coat"], verts=16)
+    body.scale = (1, 0.7, 1)
+    top = waist + 0.6
+    sphere(f"{name} shoulders", 0.21, (x, y, top), mats["coat"], scale=(1, 0.7, 0.4))
+    sphere(f"{name} head", 0.11, (x, y, top + 0.19), mats["skin"])
+    if hat:
+        cylinder(f"{name} hat brim", 0.16, 0.015, (x, y, top + 0.27), mats["hat"])
+        cylinder(f"{name} hat crown", 0.095, 0.1, (x, y, top + 0.32), mats["hat"])
