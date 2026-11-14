@@ -1,7 +1,8 @@
 """The house detective's office at the club: the desk, the lamp, the books, the telephone and the
 club's calculating machine, with harbor light through the blinds. Writes out/desk.png.
 
-Run: .venv/bin/python find-the-ring/desk.py [--big]
+Run: .venv/bin/python find-the-ring/desk.py [--big] [--glb]
+--glb also writes out/desk.glb for the 3D viewer (kit/viewer.html).
 """
 import math
 import sys
@@ -11,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import bpy  # noqa: E402
 from kit.build import aim, box, cone, cylinder, haze, light, material, text  # noqa: E402
+from kit.export import export  # noqa: E402
 from kit.render import empty_scene, render  # noqa: E402
 
 # Names come from the game's theme, but the scene keeps its own copy so it never imports the game.
@@ -137,3 +139,5 @@ if __name__ == "__main__":
     scene = build()
     scene.eevee.taa_render_samples = 64 if big else 16
     print(render(scene, "desk", width=1920 if big else 960, height=1080 if big else 540))
+    if "--glb" in sys.argv:
+        print(export("desk"))
