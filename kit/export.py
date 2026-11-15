@@ -5,7 +5,8 @@ import bpy
 
 
 def export(name):
+    """Custom properties go along as extras, such as a light's "shadow" switch for the viewer."""
     OUT.mkdir(exist_ok=True)
     path = OUT / f"{name}.glb"
-    bpy.ops.export_scene.gltf(filepath=str(path), export_format="GLB", export_lights=True, export_cameras=True, export_apply=True)
+    bpy.ops.export_scene.gltf(filepath=str(path), export_format="GLB", export_lights=True, export_cameras=True, export_apply=True, export_extras=True)
     return path

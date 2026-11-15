@@ -61,6 +61,7 @@ def light(kind, at, energy, color=(1, 1, 1), rot=(0, 0, 0), size=None, spot=None
     obj.data.energy = energy
     obj.data.color = color
     obj.data.use_shadow = shadow
+    obj["shadow"] = shadow  # the viewer reads this: a browser can afford only a few shadow lights
     if size is not None:
         if kind == "AREA":
             obj.data.size = size

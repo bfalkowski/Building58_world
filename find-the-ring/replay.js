@@ -168,6 +168,26 @@ export default async function replay({ THREE, root, camera, controls, params, on
 
   for (const p of people) put(p, spotOf(p, 'home'));
 
+  // The night's ships, at their berths outside the harbor window. Each sails at its half hour:
+  // it gathers speed, turns west and heads out to sea.
+  const ships = night.ships.slice(0, 2).map((s, i) => {
+    const g = node(`ship-${i}`);
+    if (!g) return null;
+    const div = document.createElement('div');
+    div.className = 'tag ship-tag';
+    div.textContent = `${s.name}, sails ${s.sails}`;
+    const label = new CSS2DObject(div);
+    root.add(label);
+    return { ...s, g, label, berth: g.position.clone(), quat: g.quaternion.clone(), t: -1 };
+  }).filter(Boolean);
+  const fwd = new THREE.Vector3();
+  function dock(ship, gone) {
+    ship.g.position.copy(ship.berth);
+    ship.g.quaternion.copy(ship.quat);
+    ship.g.visible = !gone;
+    ship.t = -1;
+  }
+
   // Labels, a ring on the floor under whoever the caption is about, and the page's own styles.
   const labels = new CSS2DRenderer();
   labels.setSize(innerWidth, innerHeight);
@@ -184,6 +204,7 @@ export default async function replay({ THREE, root, camera, controls, params, on
     .tag { color: #e8dcc0; font: 11px Georgia, serif; text-shadow: 0 0 4px #000, 0 0 2px #000; white-space: nowrap; }
     .tag.active { color: #ffd27a; font-size: 15px; }
     .tag.dim { opacity: .35; }
+    .tag.ship-tag { color: #8fb4ff; font-style: italic; }
     #night { position: fixed; top: 16px; left: 16px; width: min(380px, calc(100vw - 32px)); max-height: 62vh; overflow: auto;
       background: rgba(8, 9, 12, .86); color: #d8d0bc; font: 13px/1.45 Georgia, serif; padding: 12px 14px; border: 1px solid #3a3326; }
     #night h2 { margin: 0 0 4px; font-size: 15px; font-weight: normal; letter-spacing: .04em; }
@@ -211,6 +232,7 @@ export default async function replay({ THREE, root, camera, controls, params, on
     <div class="row">
       <select id="speed"><option value="0.5">Slow</option><option value="1" selected>Normal</option><option value="2">Fast</option></select>
       <label><input id="follow" type="checkbox" checked> Follow</label>
+      <button id="harbor" title="Look out of the harbor window">Harbor</button>
       <select id="watch"><option value="">Watch everyone</option>${night.regulars.map((r) => `<option value="${r.id}">Watch ${r.name}</option>`).join('')}</select>
     </div>
     <div id="ships"></div><ul id="events"></ul>`;
@@ -262,10 +284,14 @@ export default async function replay({ THREE, root, camera, controls, params, on
       const before = h > 0 ? placesAt(night.records, h - 1, night.regulars) : {};
       for (const p of people) put(p, spotOf(p, before[p.id] ?? 'home'));
     }
+    for (const ship of ships) {
+      if (jump || ship.half === h) dock(ship, ship.half < h);
+      if (ship.half === h) ship.t = 0;
+    }
     ({ steps: S.steps, place: S.place } = stepsFor(night.records, h, night.regulars));
     S.i = -1;
-    const ships = night.ships.filter((s) => s.half === h || s.half - 1 === h);
-    $('ships').innerHTML = ships.map((s) => `<div class="ship">${s.half === h ? `${s.name} sails now` : `${s.name} sails at ${s.sails}`}</div>`).join('');
+    const soon = night.ships.filter((s) => s.half === h || s.half - 1 === h);
+    $('ships').innerHTML = soon.map((s) => `<div class="ship">${s.half === h ? `${s.name} sails now` : `${s.name} sails at ${s.sails}`}</div>`).join('');
     next();
   }
 
@@ -295,7 +321,8 @@ export default async function replay({ THREE, root, camera, controls, params, on
       if (!shown) continue;
       if (step.home) {
         const n = S.steps.length - 1;
-        caption.innerHTML = `${clockOf(S.half)}<small>${moving ? 'Anyone with nothing in the books goes back to their seat' : n ? `${n} record${n > 1 ? 's' : ''} this half hour` : 'Nothing in the books this half hour'}</small>`;
+        const sails = ships.find((x) => x.half === S.half);
+        caption.innerHTML = `${clockOf(S.half)}${sails ? ` · <span style="color:#8fb4ff">${sails.name} sails</span>` : ''}<small>${moving ? 'Anyone with nothing in the books goes back to their seat' : n ? `${n} record${n > 1 ? 's' : ''} this half hour` : 'Nothing in the books this half hour'}</small>`;
         setActive(null);
         S.pause = moving ? PAUSE / 2 : 1.0;
       } else {
@@ -333,6 +360,17 @@ export default async function replay({ THREE, root, camera, controls, params, on
       p.label.visible = Boolean(g);
       if (g) p.label.position.set(g.position.x, g.position.y + (g === p.sit ? 1.15 : 1.95), g.position.z);
     }
+    for (const ship of ships) {
+      if (ship.t >= 0) {
+        ship.t += dt * speed();
+        const turn = Math.min(1, ship.t / 10) * Math.PI / 2;
+        ship.g.quaternion.copy(ship.quat).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), turn));
+        ship.g.position.addScaledVector(fwd.set(0, 0, -1).applyQuaternion(ship.g.quaternion), Math.min(5, 0.5 * ship.t) * dt * speed());
+        if (ship.t > 45) { ship.g.visible = false; ship.t = -1; }
+      }
+      ship.label.visible = ship.g.visible;
+      ship.label.position.set(ship.g.position.x, 6.5, ship.g.position.z);
+    }
     const a = S.active && shown(S.active);
     ring.visible = Boolean(a);
     if (a) ring.position.set(a.position.x, (a === S.active.sit ? 0 : a.position.y) + 0.02, a.position.z);
@@ -346,6 +384,12 @@ export default async function replay({ THREE, root, camera, controls, params, on
 
   $('half').oninput = () => startHalf(Number($('half').value), true);
   $('next').onclick = () => next();
+  // Stand at the harbor window and look out at the berths.
+  $('harbor').onclick = () => {
+    $('follow').checked = false;
+    camera.position.set(-4.6, 1.9, -0.85);
+    controls.target.set(-20, 1.2, 1.5);
+  };
   $('watch').onchange = () => { setActive(watching() ? byId[watching()] : null); listRecords(); };
   $('play').onclick = () => {
     S.playing = !S.playing;

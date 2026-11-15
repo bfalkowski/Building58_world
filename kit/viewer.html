@@ -112,7 +112,13 @@ document.getElementById('reset').onclick = () => {
 new GLTFLoader().load(`../out/${name}.glb?v=${Date.now()}`, async (gltf) => {
   gltf.scene.traverse((o) => {
     if (o.isMesh) { o.castShadow = o.receiveShadow = true; }
-    if (o.isLight) { o.userData.base = o.intensity; lamps.push(o); o.castShadow = true; o.shadow.bias = -0.0005; o.shadow.mapSize.set(1024, 1024); }
+    // A lamp casts a shadow only when its scene says so. Each shadow takes one of a GPU's few
+    // texture slots, and too many turn the whole picture black.
+    if (o.isLight) {
+      o.userData.base = o.intensity; lamps.push(o);
+      o.castShadow = (o.userData.shadow ?? o.parent?.userData.shadow) !== false;
+      if (o.castShadow) { o.shadow.bias = -0.0005; o.shadow.mapSize.set(1024, 1024); }
+    }
   });
   scene.add(gltf.scene);
   setLamps();
