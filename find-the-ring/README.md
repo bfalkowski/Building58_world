@@ -17,5 +17,16 @@ Scenes for Find the Ring in Building58_games. Each script builds its scene from 
   gold ring marks them while the camera follows. Everyone else waits. The booth and the machine's
   window light up when used. Play, Next, a speed choice and a time slider run it. Watch picks one
   regular: only their records play slowly, and the panel lists their whole night.
+- `play.mjs` and `detective.js`: play the house detective in the club. `play.mjs` is a small
+  server on this computer that holds the desk from the games repo, so the night's truth never
+  reaches the browser before the hand-in. `detective.js` is a viewer add-on built on the replay.
+  The night plays as before, and a desk panel lets you click a regular to open their file, pin
+  records as evidence, read the text of a call or a request (3 a night, each citing a pinned
+  record or a flag), tail one regular (1 a night), ban, set a suspicion for each regular and hand
+  in. Then the dawn paper shows who was in the ring, your score, and what the other detectives
+  would have done on the same night. A reloaded page keeps the desk. Start over gives a fresh one.
+
+  Run it: `GAMES_REPO=../Building58_games node find-the-ring/play.mjs`, then open the address it
+  prints. Add `--night=<seed>` to pick the night.
 
 Each scene keeps its own copy of the names it shows, so it never imports the game.

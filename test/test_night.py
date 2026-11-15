@@ -15,6 +15,10 @@ class Replay(unittest.TestCase):
 
 @unittest.skipUnless((GAMES / "find-the-ring" / "desk.js").exists(), "set GAMES_REPO to a games checkout with find-the-ring")
 class NightExport(unittest.TestCase):
+    def test_club_server(self):
+        subprocess.run(["node", "--test", str(ROOT / "test" / "play.test.mjs")], check=True, capture_output=True,
+                       env={**os.environ, "GAMES_REPO": str(GAMES)})
+
     def test_holds_only_public_records(self):
         out = ROOT / "out" / "night-test-0.json"
         subprocess.run(["node", str(ROOT / "find-the-ring" / "night.mjs"), "test-0"], check=True, capture_output=True,
