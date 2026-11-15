@@ -109,7 +109,7 @@ document.getElementById('reset').onclick = () => {
   for (const [k, v] of Object.entries(DEFAULTS)) set(k, v);
 };
 
-new GLTFLoader().load(`../out/${name}.glb`, async (gltf) => {
+new GLTFLoader().load(`../out/${name}.glb?v=${Date.now()}`, async (gltf) => {
   gltf.scene.traverse((o) => {
     if (o.isMesh) { o.castShadow = o.receiveShadow = true; }
     if (o.isLight) { o.userData.base = o.intensity; lamps.push(o); o.castShadow = true; o.shadow.bias = -0.0005; o.shadow.mapSize.set(1024, 1024); }
@@ -127,7 +127,8 @@ new GLTFLoader().load(`../out/${name}.glb`, async (gltf) => {
     camera.updateProjectionMatrix();
   }
   if (addon && /^[\w-]+(\/[\w-]+)*\.js$/.test(addon)) {
-    const mod = await import(`../${addon}`);
+    // A fresh copy every time, so an edited add-on shows without a hard reload.
+    const mod = await import(`../${addon}?v=${Date.now()}`);
     await mod.default({ THREE, scene, root: gltf.scene, camera, renderer, controls, params, onFrame: (f) => frames.push(f) });
   }
 });

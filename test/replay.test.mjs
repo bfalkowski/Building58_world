@@ -39,3 +39,36 @@ test('records read as plain words', () => {
   assert.equal(say(rec('E1', 'call', 'Dutch', { name: 'Dutch', line: 'Exchange 8-777', mins: 3 })), 'Dutch calls Exchange 8-777 (3 min)');
   assert.equal(say({ kind: 'refused', name: 'Nell', aboutName: 'Kass' }), 'The machine refuses Nell: a question about Kass');
 });
+
+import { stepsFor, whereWords, clockOf } from '../find-the-ring/replay.js';
+
+test('a half hour plays as a home step, then one step per record', () => {
+  const recs = [
+    rec('E1', 'sit', 'R1', { with: 'R2' }),
+    rec('E2', 'call', 'R3', { line: 'X' }),
+    rec('E3', 'note', 'R3'),
+  ];
+  const { steps } = stepsFor(recs, 0, regulars);
+  assert.equal(steps.length, 4);
+  assert.ok(steps[0].home);
+  assert.deepEqual(steps[0].movers, ['R4', 'R5']);
+  assert.deepEqual(steps[1].movers, ['R1', 'R2'], 'the pair walks to their table together');
+  assert.deepEqual(steps[2].movers, ['R3'], 'the call takes R3 to the booth');
+  assert.deepEqual(steps[3].movers, [], 'the note does not move R3 again');
+});
+
+test('a weaker record moves no one: a call before a step out', () => {
+  const { steps, place } = stepsFor([rec('E1', 'call', 'R1', { line: 'X' }), rec('E2', 'out', 'R1')], 0, regulars);
+  assert.deepEqual(place.R1, { out: true });
+  assert.deepEqual(steps[1].movers, []);
+  assert.deepEqual(steps[2].movers, ['R1']);
+});
+
+test('captions name the place and the time', () => {
+  assert.equal(whereWords({ spot: 'spot-booth', sitting: false }), 'goes into the telephone booth');
+  assert.equal(whereWords({ spot: 'seat-t2-1', sitting: true }), 'sits down at table 2');
+  assert.equal(whereWords({ out: true }), 'leaves by the street door');
+  assert.equal(clockOf(0), '8:00 PM');
+  assert.equal(clockOf(9), '12:30 AM');
+  assert.equal(clockOf(15), '3:30 AM');
+});
