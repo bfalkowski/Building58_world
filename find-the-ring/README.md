@@ -11,10 +11,11 @@ Scenes for Find the Ring in Building58_games. Each script builds its scene from 
   plain figures with no faces.
 - `night.mjs`: writes `out/night-<seed>.json`, one night's public records and summary from the
   games repo (`GAMES_REPO`), the same ones the detective sees at the desk. Never the truth.
-- `replay.js`: a viewer add-on that replays that night in the club, half hour by half hour. Each
-  regular goes where their records put them: the booth for a call, the machine's window for a
-  request, a shared table to sit with someone, the card table for cards, out of the street door
-  for a step out, and home otherwise. The booth and the window light up when used. Names float
-  over heads, and a panel lists the half hour's records and the sailings.
+- `replay.js`: a viewer add-on that replays that night in the club, one record at a time. At
+  each half hour, anyone with nothing in the books walks back to their seat. Then each record
+  plays in turn: a caption says what happened and where the person goes, they walk there, and a
+  gold ring marks them while the camera follows. Everyone else waits. The booth and the machine's
+  window light up when used. Play, Next, a speed choice and a time slider run it. Watch picks one
+  regular: only their records play slowly, and the panel lists their whole night.
 
 Each scene keeps its own copy of the names it shows, so it never imports the game.
