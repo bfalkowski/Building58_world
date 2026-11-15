@@ -1,5 +1,11 @@
 """The club's main room: the bar, the tables, the band stand, the telephone booth on the shared line,
-the door to the house detective's office, and the twelve regulars. Writes out/club.png.
+the machine's window, the street door, the door to the house detective's office, and the twelve
+regulars. Writes out/club.png.
+
+Named points let a viewer replay a night (find-the-ring/replay.js). Each regular is two groups,
+"regular-R1-sit" and "regular-R1-stand", and only one shows at a time. Seats are "seat-bar-0" to
+"seat-bar-6" and "seat-t1-0" to "seat-t6-2". Places to stand are "spot-booth", "spot-wait-0" to
+"spot-wait-2", "spot-machine-0" to "spot-machine-2", "spot-door", "spot-stand" and "spot-piano".
 
 Run: .venv/bin/python find-the-ring/club.py [--big] [--glb]
 --glb also writes out/club.glb for the 3D viewer (kit/viewer.html?scene=club).
@@ -11,13 +17,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import bpy  # noqa: E402
-from kit.build import aim, box, cone, cylinder, figure, haze, light, material, sphere, text  # noqa: E402
+from kit.build import aim, box, cone, cylinder, figure, group, haze, light, marker, material, sphere, text  # noqa: E402
 from kit.export import export  # noqa: E402
 from kit.render import empty_scene, render  # noqa: E402
 
 # The scene keeps its own copy of the names it shows, so it never imports the game.
 CLUB = "THE BLUE LANTERN"
 OFFICE_DOOR = "HOUSE DETECTIVE"
+MACHINE = "WAMAC No. 9"
 REGULARS = 12
 W, D, H = 14.0, 10.0, 3.6  # the room: x from -7 to 7, y from -5 to 5, height
 
@@ -87,6 +94,7 @@ def bar(m):
         x = -5.5 + k * 0.8
         cylinder(f"stool {k} post", 0.03, 0.7, (x, 2.75, 0.35), m["steel"])
         cylinder(f"stool {k} seat", 0.18, 0.08, (x, 2.75, 0.74), m["leather"])
+        marker(f"seat-bar-{k}", (x, 2.75, 0.78), turn=math.pi)
     # The club's sign over the bar, in blue tubing, and a blue lantern hanging at each end.
     text("sign", CLUB, (-3.0, 4.86, 2.55), 0.42, m["neon"], extrude=0.01)
     light("AREA", (-3.0, 4.2, 2.65), 120, color=(0.25, 0.45, 1.0), size=4, rot=(math.radians(-90), 0, 0))
@@ -98,19 +106,25 @@ def bar(m):
     light("SPOT", (-3.0, 3.4, H - 0.2), 400, color=(1.0, 0.75, 0.45), size=0.1, spot=math.radians(80), blend=0.6, rot=(0, 0, 0))
 
 
-def table(m, name, at, seats):
+def table(m, n, at, seats=3):
+    """A round table with a lamp and chairs that face it. Each chair is a marker "seat-t<n>-<k>"."""
     x, y = at
+    name = f"table {n}"
     cylinder(f"{name} top", 0.45, 0.04, (x, y, 0.74), m["cloth"])
     cylinder(f"{name} post", 0.04, 0.72, (x, y, 0.36), m["steel"])
     cylinder(f"{name} lamp", 0.06, 0.18, (x, y, 0.85), m["shade"])
     light("POINT", (x, y, 0.95), 12, color=(1.0, 0.65, 0.35), size=0.05, shadow=False)
-    spots = []
     for k in range(seats):
         a = k * 2 * math.pi / seats + 0.4
-        cx, cy = x + 0.75 * math.cos(a), y + 0.75 * math.sin(a)
-        box(f"{name} chair {k}", (0.42, 0.42, 0.05), (cx, cy, 0.45), m["leather"])
-        spots.append((cx, cy, 0.48))
-    return spots
+        cx, cy = x + 0.8 * math.cos(a), y + 0.8 * math.sin(a)
+        turn = math.atan2(x - cx, -(y - cy))  # the chair's front (-y) faces the table
+        parts = [
+            box(f"{name} chair {k} seat", (0.42, 0.42, 0.05), (0, 0, 0.45), m["leather"]),
+            box(f"{name} chair {k} back", (0.42, 0.05, 0.5), (0, 0.2, 0.72), m["leather"]),
+        ] + [cylinder(f"{name} chair {k} leg {q}", 0.018, 0.45, (0.17 * sx, 0.17 * sy, 0.225), m["steel"], verts=8)
+             for q, (sx, sy) in enumerate([(-1, -1), (1, -1), (-1, 1), (1, 1)])]
+        group(f"{name} chair {k}", parts, (cx, cy, 0), turn)
+        marker(f"seat-t{n}-{k}", (cx, cy, 0.48), turn)
 
 
 def stand(m):
@@ -120,6 +134,8 @@ def stand(m):
     cylinder("mic stand", 0.012, 1.4, (4.6, 3.0, 1.05), m["steel"])
     sphere("mic", 0.04, (4.6, 3.0, 1.78), m["steel"])
     box("piano", (1.5, 0.6, 1.2), (6.0, 4.2, 0.95), m["bakelite"])
+    marker("spot-stand", (4.6, 3.3, 0.35), turn=math.pi)
+    marker("spot-piano", (6.0, 3.6, 0.35), turn=math.pi)
     s = light("SPOT", (4.6, -0.5, H - 0.1), 1500, color=(1.0, 0.85, 0.65), size=0.05, spot=math.radians(18), blend=0.3)
     aim(s, (4.6, 3.0, 1.2))
 
@@ -134,7 +150,10 @@ def booth(m):
     box("booth door glass", (0.02, 0.9, 1.4), (x + 0.45, y, 1.3), m["frosted"])
     box("booth phone box", (0.12, 0.25, 0.35), (x - 0.32, y, 1.5), m["bakelite"])
     text("booth sign", "TELEPHONE", (x + 0.47, y, 2.15), 0.12, m["letters"], rot=(math.pi / 2, 0, math.pi / 2))
-    light("POINT", (x, y, 2.1), 15, color=(1.0, 0.85, 0.6), size=0.1, shadow=False)
+    light("POINT", (x, y, 2.1), 15, color=(1.0, 0.85, 0.6), size=0.1, shadow=False).name = "booth-light"
+    marker("spot-booth", (x - 0.05, y, 0.0), turn=-math.pi / 2)
+    for k in range(3):
+        marker(f"spot-wait-{k}", (x + 1.0, y - 1.0 + k * 0.6, 0.0), turn=-math.pi / 2)
 
 
 def office_door(m):
@@ -145,14 +164,48 @@ def office_door(m):
     text("office door name", OFFICE_DOOR, (x - 0.06, y, 1.62), 0.075, m["letters"], rot=(math.pi / 2, 0, -math.pi / 2))
 
 
-def regulars(m, seats):
-    """Twelve plain figures: four at the bar, six at the tables, one on the stand, one in the booth."""
-    at_bar = [((-5.5 + k * 0.8 * 1.0), 2.75, 0.78) for k in (0, 2, 3, 5)]
-    places = [("bar", p, True) for p in at_bar]
-    places += [("table", p, True) for p in seats[:6]]
-    places += [("stand", (4.6, 3.25, 0.35), False), ("booth", (-6.3, -1.5, 0.0), False)]
-    for i, (_, p, sitting) in enumerate(places[:REGULARS]):
-        figure(f"regular {i + 1}", p, people_mats(i), sitting=sitting, hat=i % 3 != 1)
+def machine_window(m):
+    """The machine's window on the right wall: a brass grille with a slot, where regulars hand in
+    their requests to the club's machine, which works in the back."""
+    x, y = 6.86, 0.6
+    box("machine window frame", (0.1, 1.4, 1.2), (x, y, 1.3), m["brass"])
+    box("machine window glass", (0.02, 1.2, 0.7), (x - 0.06, y, 1.45), m["frosted"])
+    for k in range(9):
+        box(f"machine grille {k}", (0.03, 0.015, 0.7), (x - 0.08, y - 0.56 + k * 0.14, 1.45), m["brass"])
+    box("machine slot", (0.04, 0.5, 0.04), (x - 0.07, y, 0.95), m["bakelite"])
+    text("machine window name", MACHINE, (x - 0.09, y, 1.95), 0.12, m["letters"], rot=(math.pi / 2, 0, -math.pi / 2))
+    light("POINT", (x - 0.6, y, 1.6), 10, color=(1.0, 0.6, 0.25), size=0.1, shadow=False).name = "machine-light"
+    for k in range(3):
+        marker(f"spot-machine-{k}", (x - 0.7 - 0.6 * k, y - 0.3 + 0.3 * k, 0.0), turn=math.pi / 2)
+
+
+def street_door(m):
+    """The street door on the left wall, near the front. A regular who steps out leaves by it."""
+    x, y = -6.88, -4.0
+    box("street door", (0.06, 1.1, 2.3), (x, y, 1.15), m["wood"])
+    box("street door glass", (0.02, 0.6, 0.5), (x + 0.04, y, 1.8), m["frosted"])
+    marker("spot-door", (x + 0.6, y, 0.0), turn=math.pi / 2)
+
+
+def regular_groups(m):
+    """Each regular twice, sitting and standing, under groups a viewer can move. The standing
+    group is hidden at first. Homes: R1 sings on the stand, R2 plays the piano, R3 to R6 sit at the
+    bar, R7 to R12 at the tables."""
+    homes = {"R1": ("spot-stand", False), "R2": ("spot-piano", False)}
+    homes.update({f"R{k}": (f"seat-bar-{(k - 3) * 2}", True) for k in range(3, 7)})
+    homes.update({f"R{k}": (f"seat-t{k - 6}-0", True) for k in range(7, 13)})
+    for k in range(1, REGULARS + 1):
+        rid = f"R{k}"
+        mats = people_mats(k - 1)
+        spot, sitting = homes[rid]
+        home = bpy.data.objects[spot]
+        sit = group(f"regular-{rid}-sit", figure(f"regular {k} sitting", (0, 0, 0), mats, sitting=True, hat=k % 3 != 2))
+        stand = group(f"regular-{rid}-stand", figure(f"regular {k} standing", (0, 0, 0), mats, sitting=False, hat=k % 3 != 2))
+        shown, hidden = (sit, stand) if sitting else (stand, sit)
+        shown.location, shown.rotation_euler = home.location.copy(), home.rotation_euler.copy()
+        hidden.location = (0, -20, 0)  # parked out of sight; a viewer moves it in when needed
+        for o in [hidden, *hidden.children]:
+            o.hide_render = True
 
 
 def build():
@@ -160,13 +213,14 @@ def build():
     m = materials()
     room(m)
     bar(m)
-    seats = []
     for k, (x, y) in enumerate([(-3.5, 0.3), (-0.5, -1.0), (1.0, 1.0), (-3.2, -2.8), (0.8, -3.2), (4.0, -2.5)]):
-        seats += table(m, f"table {k + 1}", (x, y), 3)[:1 if k % 2 else 2]
+        table(m, k + 1, (x, y))
     stand(m)
     booth(m)
     office_door(m)
-    regulars(m, seats)
+    machine_window(m)
+    street_door(m)
+    regular_groups(m)
     for x in (-4.5, 0.0, 4.5):  # dim pendant lights down the room
         cone(f"pendant {x}", 0.25, 0.05, 0.2, (x, -1.5, H - 0.5), m["shade"])
         light("POINT", (x, -1.5, H - 0.7), 60, color=(1.0, 0.7, 0.4), size=0.2)
