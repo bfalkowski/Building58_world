@@ -8,7 +8,12 @@
   :root { --bg: #050608; --ink: #c9c3b4; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 13px/1.4 Georgia, serif; overflow: hidden; }
   #help { position: fixed; left: 16px; bottom: 16px; opacity: .75; }
-  #fill { position: fixed; right: 16px; bottom: 16px; }
+  #light { position: fixed; right: 16px; bottom: 16px; width: 230px; padding: 10px 12px; background: rgba(8, 9, 12, .82);
+    border: 1px solid #3a3326; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; }
+  #light b { grid-column: 1 / -1; font-weight: normal; letter-spacing: .04em; }
+  #light input { width: 100%; }
+  #light button { grid-column: 1 / -1; background: #2a241a; color: var(--ink); border: 1px solid #5a4c33; font: inherit; cursor: pointer; }
+  @media (max-width: 600px) { #help { display: none; } #light { left: 16px; width: auto; } }
 </style>
 <script type="importmap">
 { "imports": {
@@ -19,7 +24,15 @@
 </head>
 <body>
 <div id="help">Drag to turn. Scroll to move in. Right-drag to slide. Scene: <span id="name"></span></div>
-<div id="fill"><label>Lamps <input id="lamps" type="range" min="-4" max="0" step="0.05" value="-2.8"></label> <label>Fill <input id="amb" type="range" min="0" max="1" step="0.01" value="0.08"></label></div>
+<div id="light">
+  <b>Light</b>
+  <label for="room">Room</label><input id="room" type="range" min="0" max="4" step="0.05">
+  <label for="bright">Brightness</label><input id="bright" type="range" min="0.3" max="3" step="0.05">
+  <label for="lamps">Lamps</label><input id="lamps" type="range" min="-4" max="-1.5" step="0.05">
+  <label for="haze">Haze</label><input id="haze" type="range" min="0" max="0.08" step="0.002">
+  <label for="glow">Glow</label><input id="glow" type="range" min="0" max="1.5" step="0.05">
+  <button id="reset">Reset</button>
+</div>
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -47,15 +60,14 @@ document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050608);
-scene.fog = new THREE.FogExp2(0x0a0d12, 0.035);
-const ambient = new THREE.AmbientLight(0x8090b0, 0.08);
-scene.add(ambient);
-document.getElementById('amb').oninput = (e) => { ambient.intensity = Number(e.target.value); };
+scene.fog = new THREE.FogExp2(0x0a0d12, 0.02);
+// Room: an even light from above and below, with no bright spots, so the room can be lit up
+// without the lamps glaring. Brightness: the exposure of the whole picture.
+const room = new THREE.HemisphereLight(0xd8cbb0, 0x302820, 1.2);
+scene.add(room);
 // Blender's light strengths come out far stronger than three.js expects, so every lamp is scaled
 // by one factor, 10 to the slider's power.
 const lamps = [];
-const setLamps = () => { const k = 10 ** Number(document.getElementById('lamps').value); for (const l of lamps) l.intensity = l.userData.base * k; };
-document.getElementById('lamps').oninput = setLamps;
 
 let camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.05, 100);
 camera.position.set(-1.5, 1.6, 2.3);
@@ -66,8 +78,36 @@ controls.enableDamping = true;
 const composer = new EffectComposer(renderer);
 const pass = new RenderPass(scene, camera);
 composer.addPass(pass);
-composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.6, 0.5, 0.85));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.35, 0.5, 0.85);
+composer.addPass(bloom);
 composer.addPass(new OutputPass());
+
+// The light controls. Each viewer's settings are kept in this browser only.
+const DEFAULTS = { room: 1.2, bright: 1, lamps: -2.8, haze: 0.02, glow: 0.35 };
+const apply = {
+  room: (v) => { room.intensity = v; },
+  bright: (v) => { renderer.toneMappingExposure = v; },
+  lamps: (v) => { for (const l of lamps) l.intensity = l.userData.base * 10 ** v; },
+  haze: (v) => { scene.fog.density = v; },
+  glow: (v) => { bloom.strength = v; },
+};
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem('viewer-light') || '{}'); } catch {}
+const set = (k, v) => { document.getElementById(k).value = v; apply[k](Number(v)); };
+const setLamps = () => apply.lamps(Number(document.getElementById('lamps').value));
+for (const k of Object.keys(DEFAULTS)) {
+  set(k, saved[k] ?? DEFAULTS[k]);
+  document.getElementById(k).oninput = (e) => {
+    apply[k](Number(e.target.value));
+    saved[k] = Number(e.target.value);
+    try { localStorage.setItem('viewer-light', JSON.stringify(saved)); } catch {}
+  };
+}
+document.getElementById('reset').onclick = () => {
+  saved = {};
+  try { localStorage.removeItem('viewer-light'); } catch {}
+  for (const [k, v] of Object.entries(DEFAULTS)) set(k, v);
+};
 
 new GLTFLoader().load(`../out/${name}.glb`, async (gltf) => {
   gltf.scene.traverse((o) => {
