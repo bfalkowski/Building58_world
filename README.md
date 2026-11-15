@@ -19,11 +19,16 @@ bpy needs Python 3.13 on Apple Silicon (arm64) or another platform with a bpy wh
     .venv/bin/python find-the-ring/desk.py --glb  # also writes out/desk.glb
     .venv/bin/python -m http.server 5859 --bind 127.0.0.1
     # then open http://127.0.0.1:5859/kit/viewer.html?scene=desk to walk around it
-    .venv/bin/python -m unittest discover -s test
+    # replay a night in the club: export its public records, then open the replay
+    GAMES_REPO=../Building58_games node find-the-ring/night.mjs test-0
+    .venv/bin/python find-the-ring/club.py --glb
+    # http://127.0.0.1:5859/kit/viewer.html?scene=club&addon=find-the-ring/replay.js&night=test-0
+    GAMES_REPO=../Building58_games .venv/bin/python -m unittest discover -s test
 
 ## Layout
 
 - `kit/`: what two scenes use: lights, materials, camera rigs, the render setup, the glTF export
   and `viewer.html`, a browser page (three.js from a CDN) that loads a scene's .glb to orbit it.
-- `find-the-ring/`: the scenes for Find the Ring. `desk.py` is the house detective's office.
+- `find-the-ring/`: the scenes for Find the Ring. `desk.py` is the house detective's office,
+  `club.py` the main room.
 - `test/`: a smoke render and the secret check.
