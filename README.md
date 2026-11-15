@@ -23,6 +23,8 @@ bpy needs Python 3.13 on Apple Silicon (arm64) or another platform with a bpy wh
     GAMES_REPO=../Building58_games node find-the-ring/night.mjs test-0
     .venv/bin/python find-the-ring/club.py --glb
     # http://127.0.0.1:5859/kit/viewer.html?scene=club&addon=find-the-ring/replay.js&night=test-0
+    # play the house detective in the club: start the club server, then open the address it prints
+    GAMES_REPO=../Building58_games node find-the-ring/play.mjs
     GAMES_REPO=../Building58_games .venv/bin/python -m unittest discover -s test
 
 ## Layout

@@ -358,4 +358,10 @@ export default async function replay({ THREE, root, camera, controls, params, on
   };
   startHalf(0, true);
   caption.innerHTML = `${night.place}<small>Press Play, or Next to go one record at a time</small>`;
+  // For another add-on built on the replay, such as the detective's desk.
+  return {
+    night, seed, people, byId, caption,
+    focus(id) { setActive(byId[id]); $('follow').checked = true; },
+    jumpTo(half) { startHalf(half, true); },
+  };
 }
