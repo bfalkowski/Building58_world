@@ -8,8 +8,11 @@ Scenes for Find the Ring in Building58_games. Each script builds its scene from 
 - `club.py`: the club's main room. The bar under the club's blue sign, round tables with lamps, the
   band stand with a curtain and a microphone, the telephone booth on the shared line by the left
   wall, the door to the house detective's office on the right wall, and the twelve regulars as
-  plain figures with no faces. A window in the left wall looks out on the quay and the harbor:
-  cranes, lamp posts, ships at anchor far out, and the night's two ships at their berths.
+  plain figures with no faces: hats or hair, coats with a shirt and tie or a dress, arms in two
+  parts with hands, and shoes. A window in the left wall looks out on the quay and the harbor:
+  cranes, lamp posts, ships at anchor far out, and the night's two ships, one along the quay and
+  one at a mooring buoy. Each is a cargo steamer with a shaped hull, rails, hatches, masts with
+  booms and rigging, a deck house and bridge, lifeboats, a funnel, lit portholes and running lights.
 - `night.mjs`: writes `out/night-<seed>.json`, one night's public records and summary from the
   games repo (`GAMES_REPO`), the same ones the detective sees at the desk. Never the truth.
 - `replay.js`: a viewer add-on that replays that night in the club, one record at a time. At
