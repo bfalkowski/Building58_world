@@ -6,3 +6,4 @@
 - **Smoke render**: a small, fast render that shows bpy works on this computer.
 - **Builder**: a kit function that adds one shape, material or light in one call (`kit/build.py`).
 - **Haze**: a thin fog in the air of a scene, so beams of light show.
+- **Figure**: a plain stand-in for a person: legs, body, head and maybe a hat. No face and no likeness.
