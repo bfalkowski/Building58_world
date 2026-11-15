@@ -28,8 +28,19 @@ class ClubScene(unittest.TestCase):
     def test_has_twelve_regulars(self):
         club = load()
         scene = club.build()
-        heads = [o for o in scene.objects if o.name.startswith("regular ") and o.name.endswith(" head")]
-        self.assertEqual(len(heads), club.REGULARS)
+        for k in range(1, club.REGULARS + 1):
+            self.assertIn(f"regular-R{k}-sit", bpy.data.objects)
+            self.assertIn(f"regular-R{k}-stand", bpy.data.objects)
+
+    def test_has_the_places_a_replay_needs(self):
+        club = load()
+        club.build()
+        names = ["spot-booth", "spot-door", "spot-stand", "spot-piano"]
+        names += [f"spot-wait-{k}" for k in range(3)] + [f"spot-machine-{k}" for k in range(3)]
+        names += [f"seat-bar-{k}" for k in range(7)] + [f"seat-t{t}-{k}" for t in range(1, 7) for k in range(3)]
+        names += ["booth-light", "machine-light"]
+        for n in names:
+            self.assertIn(n, bpy.data.objects)
 
 
 if __name__ == "__main__":

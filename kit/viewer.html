@@ -29,8 +29,13 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-// Which scene: viewer.html?scene=desk loads out/desk.glb.
-const name = new URLSearchParams(location.search).get('scene') || 'desk';
+// Which scene: viewer.html?scene=desk loads out/desk.glb. An add-on, such as
+// &addon=find-the-ring/replay.js, is a module from this repo that gets the loaded scene and a hook
+// that runs every frame. Only a path inside the repo is accepted.
+const params = new URLSearchParams(location.search);
+const name = params.get('scene') || 'desk';
+const addon = params.get('addon');
+const frames = [];
 document.getElementById('name').textContent = name;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -42,7 +47,7 @@ document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050608);
-scene.fog = new THREE.FogExp2(0x0a0d12, 0.08);
+scene.fog = new THREE.FogExp2(0x0a0d12, 0.035);
 const ambient = new THREE.AmbientLight(0x8090b0, 0.08);
 scene.add(ambient);
 document.getElementById('amb').oninput = (e) => { ambient.intensity = Number(e.target.value); };
@@ -64,7 +69,7 @@ composer.addPass(pass);
 composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.6, 0.5, 0.85));
 composer.addPass(new OutputPass());
 
-new GLTFLoader().load(`../out/${name}.glb`, (gltf) => {
+new GLTFLoader().load(`../out/${name}.glb`, async (gltf) => {
   gltf.scene.traverse((o) => {
     if (o.isMesh) { o.castShadow = o.receiveShadow = true; }
     if (o.isLight) { o.userData.base = o.intensity; lamps.push(o); o.castShadow = true; o.shadow.bias = -0.0005; o.shadow.mapSize.set(1024, 1024); }
@@ -81,6 +86,10 @@ new GLTFLoader().load(`../out/${name}.glb`, (gltf) => {
     camera.fov = cam.fov;
     camera.updateProjectionMatrix();
   }
+  if (addon && /^[\w-]+(\/[\w-]+)*\.js$/.test(addon)) {
+    const mod = await import(`../${addon}`);
+    await mod.default({ THREE, scene, root: gltf.scene, camera, renderer, controls, params, onFrame: (f) => frames.push(f) });
+  }
 });
 
 addEventListener('resize', () => {
@@ -89,7 +98,8 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   composer.setSize(innerWidth, innerHeight);
 });
-renderer.setAnimationLoop(() => { controls.update(); composer.render(); });
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => { const dt = clock.getDelta(); controls.update(); for (const f of frames) f(dt); composer.render(); });
 </script>
 </body>
 </html>

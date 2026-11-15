@@ -104,17 +104,45 @@ def sphere(name, radius, at, mat=None, scale=(1, 1, 1)):
 
 def figure(name, at, mats, sitting=False, hat=True):
     """A plain person, standing on `at` or sitting on a seat at `at`: legs, body, head and a hat.
-    No face and no likeness. mats needs "coat", "skin" and "hat"."""
+    No face and no likeness. mats needs "coat", "skin" and "hat". Returns the parts."""
     x, y, z = at
+    parts = []
     waist = z if sitting else z + 0.85
-    if not sitting:
+    if sitting:
+        for side in (-1, 1):  # thighs forward, shins down
+            parts.append(box(f"{name} thigh {side}", (0.13, 0.42, 0.13), (x + side * 0.1, y - 0.18, z + 0.06), mats["coat"]))
+            parts.append(box(f"{name} shin {side}", (0.12, 0.12, 0.45), (x + side * 0.1, y - 0.36, z - 0.22), mats["coat"]))
+    else:
         for side in (-1, 1):
-            cylinder(f"{name} leg {side}", 0.075, 0.85, (x + side * 0.09, y, z + 0.425), mats["coat"], verts=12)
+            parts.append(cylinder(f"{name} leg {side}", 0.075, 0.85, (x + side * 0.09, y, z + 0.425), mats["coat"], verts=12))
     body = cylinder(f"{name} body", 0.2, 0.6, (x, y, waist + 0.3), mats["coat"], verts=16)
     body.scale = (1, 0.7, 1)
+    parts.append(body)
     top = waist + 0.6
-    sphere(f"{name} shoulders", 0.21, (x, y, top), mats["coat"], scale=(1, 0.7, 0.4))
-    sphere(f"{name} head", 0.11, (x, y, top + 0.19), mats["skin"])
+    parts.append(sphere(f"{name} shoulders", 0.21, (x, y, top), mats["coat"], scale=(1, 0.7, 0.4)))
+    for side in (-1, 1):
+        parts.append(cylinder(f"{name} arm {side}", 0.06, 0.55, (x + side * 0.23, y, top - 0.27), mats["coat"], verts=12))
+    parts.append(sphere(f"{name} head", 0.11, (x, y, top + 0.19), mats["skin"]))
     if hat:
-        cylinder(f"{name} hat brim", 0.16, 0.015, (x, y, top + 0.27), mats["hat"])
-        cylinder(f"{name} hat crown", 0.095, 0.1, (x, y, top + 0.32), mats["hat"])
+        parts.append(cylinder(f"{name} hat brim", 0.16, 0.015, (x, y, top + 0.27), mats["hat"]))
+        parts.append(cylinder(f"{name} hat crown", 0.095, 0.1, (x, y, top + 0.32), mats["hat"]))
+    return parts
+
+
+def group(name, parts, at=(0, 0, 0), turn=0.0):
+    """Put parts built around the origin under one empty, then move and turn the empty to `at`.
+    A viewer can then move the whole thing by its name."""
+    bpy.ops.object.empty_add(type="PLAIN_AXES", location=(0, 0, 0))
+    g = bpy.context.object
+    g.name = name
+    g.empty_display_size = 0.1
+    for p in parts:
+        p.parent = g
+    g.location = at
+    g.rotation_euler = (0, 0, turn)
+    return g
+
+
+def marker(name, at, turn=0.0):
+    """A named point with nothing to draw: a seat or a place to stand, for a viewer to find."""
+    return group(name, [], at, turn)
