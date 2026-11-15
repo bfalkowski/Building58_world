@@ -8,7 +8,8 @@ Scenes for Find the Ring in Building58_games. Each script builds its scene from 
 - `club.py`: the club's main room. The bar under the club's blue sign, round tables with lamps, the
   band stand with a curtain and a microphone, the telephone booth on the shared line by the left
   wall, the door to the house detective's office on the right wall, and the twelve regulars as
-  plain figures with no faces.
+  plain figures with no faces. A window in the left wall looks out on the quay and the harbor:
+  cranes, lamp posts, ships at anchor far out, and the night's two ships at their berths.
 - `night.mjs`: writes `out/night-<seed>.json`, one night's public records and summary from the
   games repo (`GAMES_REPO`), the same ones the detective sees at the desk. Never the truth.
 - `replay.js`: a viewer add-on that replays that night in the club, one record at a time. At
@@ -16,7 +17,9 @@ Scenes for Find the Ring in Building58_games. Each script builds its scene from 
   plays in turn: a caption says what happened and where the person goes, they walk there, and a
   gold ring marks them while the camera follows. Everyone else waits. The booth and the machine's
   window light up when used. Play, Next, a speed choice and a time slider run it. Watch picks one
-  regular: only their records play slowly, and the panel lists their whole night.
+  regular: only their records play slowly, and the panel lists their whole night. Each of the
+  night's ships sails at its half hour: it turns west and heads out to sea. Harbor puts the camera
+  at the window.
 - `play.mjs` and `detective.js`: play the house detective in the club. `play.mjs` is a small
   server on this computer that holds the desk from the games repo, so the night's truth never
   reaches the browser before the hand-in. `detective.js` is a viewer add-on built on the replay.

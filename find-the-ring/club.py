@@ -1,11 +1,13 @@
 """The club's main room: the bar, the tables, the band stand, the telephone booth on the shared line,
 the machine's window, the street door, the door to the house detective's office, and the twelve
-regulars. Writes out/club.png.
+regulars. Through a window in the left wall: the quay and the harbor, with the night's two ships at
+their berths. Writes out/club.png.
 
 Named points let a viewer replay a night (find-the-ring/replay.js). Each regular is two groups,
 "regular-R1-sit" and "regular-R1-stand", and only one shows at a time. Seats are "seat-bar-0" to
 "seat-bar-6" and "seat-t1-0" to "seat-t6-2". Places to stand are "spot-booth", "spot-wait-0" to
 "spot-wait-2", "spot-machine-0" to "spot-machine-2", "spot-door", "spot-stand" and "spot-piano".
+The ships are groups "ship-0" and "ship-1", at the markers "berth-0" and "berth-1".
 
 Run: .venv/bin/python find-the-ring/club.py [--big] [--glb]
 --glb also writes out/club.glb for the 3D viewer (kit/viewer.html?scene=club).
@@ -27,6 +29,8 @@ OFFICE_DOOR = "HOUSE DETECTIVE"
 MACHINE = "WAMAC No. 9"
 REGULARS = 12
 W, D, H = 14.0, 10.0, 3.6  # the room: x from -7 to 7, y from -5 to 5, height
+WINDOW = (-0.7, 2.4, 0.9, 2.9)  # the harbor window in the left wall: y from, y to, z from, z to
+QUAY = -16.0  # the quay's edge, west of the club. The water starts here.
 
 
 def materials():
@@ -51,6 +55,18 @@ def materials():
         "letters": material("letters", (0.02, 0.02, 0.02), rough=0.6),
         "curtain": material("curtain", (0.3, 0.02, 0.03), rough=0.8),
         "steel": material("steel", (0.5, 0.5, 0.52), rough=0.3, metal=0.9),
+        "stone": material("stone", (0.1, 0.1, 0.11), rough=0.7),
+        "brick": material("brick", (0.12, 0.06, 0.05), rough=0.9),
+        "water": material("water", (0.01, 0.02, 0.035), rough=0.08, metal=0.3),
+        "hull": material("hull", (0.04, 0.04, 0.05), rough=0.5),
+        "hull band": material("hull band", (0.35, 0.05, 0.04), rough=0.6),
+        "ship white": material("ship white", (0.55, 0.53, 0.48), rough=0.7),
+        "funnel": material("funnel", (0.05, 0.05, 0.05), rough=0.6),
+        "funnel band": material("funnel band", (0.6, 0.4, 0.1), rough=0.5),
+        "porthole": material("porthole", (1.0, 0.8, 0.5), emit=(1.0, 0.75, 0.4), strength=4),
+        "mast light": material("mast light", (1.0, 0.95, 0.85), emit=(1.0, 0.95, 0.85), strength=8),
+        "red light": material("red light", (1.0, 0.1, 0.05), emit=(1.0, 0.1, 0.05), strength=8),
+        "crane": material("crane", (0.25, 0.18, 0.06), rough=0.7, metal=0.4),
     }
 
 
@@ -72,7 +88,16 @@ def room(m):
                 box(f"tile {i} {j}", (0.6, 0.6, 0.01), (2.8 + i * 0.6, -1.4 + j * 0.6, 0.005), m["tile"])
     box("ceiling", (W, D, 0.1), (0, 0, H + 0.05), m["ceiling"])
     box("wall back", (W, 0.2, H), (0, D / 2, H / 2), m["wall"])
-    box("wall left", (0.2, D, H), (-W / 2, 0, H / 2), m["wall"])
+    # The left wall has a window onto the harbor, between the booth and the bar.
+    y0, y1, z0, z1 = WINDOW
+    box("wall left front", (0.2, y0 + D / 2, H), (-W / 2, (y0 - D / 2) / 2, H / 2), m["wall"])
+    box("wall left back", (0.2, D / 2 - y1, H), (-W / 2, (y1 + D / 2) / 2, H / 2), m["wall"])
+    box("wall left under window", (0.2, y1 - y0, z0), (-W / 2, (y0 + y1) / 2, z0 / 2), m["wall"])
+    box("wall left over window", (0.2, y1 - y0, H - z1), (-W / 2, (y0 + y1) / 2, (z1 + H) / 2), m["wall"])
+    box("harbor window sill", (0.35, y1 - y0, 0.05), (-W / 2 + 0.05, (y0 + y1) / 2, z0), m["wood"])
+    for k in range(4):  # the frame: four uprights and a cross bar
+        box(f"harbor window bar {k}", (0.08, 0.06, z1 - z0), (-W / 2, y0 + k * (y1 - y0) / 3, (z0 + z1) / 2), m["wood"])
+    box("harbor window cross", (0.08, y1 - y0, 0.06), (-W / 2, (y0 + y1) / 2, (z0 + z1) / 2 + 0.3), m["wood"])
     box("wall right", (0.2, D, H), (W / 2, 0, H / 2), m["wall"])
     for x in (-6.4, 2.4):
         box(f"column {x}", (0.35, 0.35, H), (x, 1.2, H / 2), m["wood"])
@@ -187,6 +212,61 @@ def street_door(m):
     marker("spot-door", (x + 0.6, y, 0.0), turn=math.pi / 2)
 
 
+def ship(m, k, at):
+    """One cargo ship at its berth, bow to the north, as a group "ship-<k>" a viewer can sail away.
+    A plain hull, a deck house at the stern, a funnel, two masts with lights, and lit portholes."""
+    parts = [
+        box(f"ship {k} hull", (2.6, 11.0, 2.4), (0, 0, -0.2), m["hull"]),
+        box(f"ship {k} bow", (1.84, 1.84, 2.4), (0, 5.5, -0.2), m["hull"], rot=(0, 0, math.pi / 4)),
+        box(f"ship {k} deck line", (2.62, 11.0, 0.12), (0, 0, 0.95), m["hull band"]),
+        box(f"ship {k} house", (2.2, 3.0, 1.7), (0, -3.0, 1.85), m["ship white"]),
+        box(f"ship {k} bridge", (2.3, 1.2, 0.8), (0, -2.0, 3.1), m["ship white"]),
+        box(f"ship {k} bridge windows", (2.32, 0.02, 0.25), (0, -1.39, 3.2), m["porthole"]),
+        cylinder(f"ship {k} funnel", 0.4, 1.8, (0, -3.6, 3.6), m["funnel"], verts=16),
+        cylinder(f"ship {k} funnel band", 0.41, 0.3, (0, -3.6, 4.2), m["funnel band"], verts=16),
+    ]
+    for side in (-1, 1):
+        parts.append(box(f"ship {k} portholes {side}", (0.02, 7.5, 0.12), (side * 1.31, 0.6, 0.45), m["porthole"]))
+    for n, y in enumerate((3.2, -5.0)):
+        parts.append(cylinder(f"ship {k} mast {n}", 0.05, 4.5, (0, y, 3.1), m["steel"], verts=8))
+        parts.append(sphere(f"ship {k} mast light {n}", 0.09, (0, y, 5.4), m["mast light"]))
+    g = group(f"ship-{k}", parts, at)
+    lamp = light("POINT", (0, 0, 3.6), 80, color=(1.0, 0.85, 0.6), size=0.2, shadow=False)
+    lamp.name = f"ship-{k}-light"
+    lamp.parent = g
+    return g
+
+
+def harbor(m):
+    """Outside the left wall: the street, the quay and the harbor at night. Two berths hold the
+    night's two ships ("ship-0" and "ship-1"). Cranes, bollards, a shed and lamp posts line the quay.
+    Far out, the lights of ships at anchor."""
+    box("street", (-W / 2 - QUAY + 0.2, 60.0, 0.1), ((QUAY - W / 2) / 2, 0, -0.05), m["stone"])
+    box("quay wall", (0.6, 60.0, 2.0), (QUAY + 0.3, 0, -1.0), m["stone"])
+    box("water", (160.0, 160.0, 0.1), (QUAY - 80.0, 0, -1.25), m["water"])
+    box("club roof", (W + 0.8, D + 0.8, 0.3), (0, 0, H + 0.25), m["brick"])
+    box("shed", (5.0, 12.0, 4.0), (QUAY + 5.0, -18.0, 2.0), m["brick"])
+    for y in range(-24, 25, 4):
+        cylinder(f"bollard {y}", 0.18, 0.5, (QUAY + 0.6, y, 0.25), m["bakelite"], verts=12)
+    for n, y in enumerate((-8.0, 13.0)):  # two cranes on the quay, their arms out over the water
+        for dx in (-1.0, 1.0):
+            for dy in (-1.0, 1.0):
+                box(f"crane {n} leg {dx} {dy}", (0.25, 0.25, 9.0), (QUAY + 2.5 + dx, y + dy, 4.5), m["crane"])
+        box(f"crane {n} cab", (2.6, 2.6, 1.6), (QUAY + 2.5, y, 9.8), m["crane"])
+        box(f"crane {n} arm", (14.0, 0.5, 0.5), (QUAY - 3.5, y, 10.8), m["crane"])
+        sphere(f"crane {n} light", 0.12, (QUAY - 10.4, y, 11.2), m["red light"])
+    for n, y in enumerate((-12.0, -4.0, 4.0, 12.0)):
+        cylinder(f"quay lamp {n} post", 0.06, 4.0, (QUAY + 1.5, y, 2.0), m["steel"], verts=8)
+        sphere(f"quay lamp {n}", 0.18, (QUAY + 1.5, y, 4.1), m["shade"])
+        light("POINT", (QUAY + 1.5, y, 4.0), 250, color=(1.0, 0.75, 0.45), size=0.2, shadow=False)
+    for n, (x, y) in enumerate([(-70, -20), (-85, 15), (-60, 30), (-95, -5)]):
+        sphere(f"anchored ship light {n}", 0.25, (x, y, 2.0), m["mast light"])
+    marker("berth-0", (QUAY - 2.6, 1.0, 0.0))
+    marker("berth-1", (QUAY - 2.6, -9.0, 0.0))
+    ship(m, 0, (QUAY - 2.6, 1.0, 0.0))
+    ship(m, 1, (QUAY - 2.6, -9.0, 0.0))
+
+
 def regular_groups(m):
     """Each regular twice, sitting and standing, under groups a viewer can move. The standing
     group is hidden at first. Homes: R1 sings on the stand, R2 plays the piano, R3 to R6 sit at the
@@ -220,6 +300,7 @@ def build():
     office_door(m)
     machine_window(m)
     street_door(m)
+    harbor(m)
     regular_groups(m)
     for x in (-4.5, 0.0, 4.5):  # dim pendant lights down the room
         cone(f"pendant {x}", 0.25, 0.05, 0.2, (x, -1.5, H - 0.5), m["shade"])

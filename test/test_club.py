@@ -38,9 +38,17 @@ class ClubScene(unittest.TestCase):
         names = ["spot-booth", "spot-door", "spot-stand", "spot-piano"]
         names += [f"spot-wait-{k}" for k in range(3)] + [f"spot-machine-{k}" for k in range(3)]
         names += [f"seat-bar-{k}" for k in range(7)] + [f"seat-t{t}-{k}" for t in range(1, 7) for k in range(3)]
-        names += ["booth-light", "machine-light"]
+        names += ["booth-light", "machine-light", "ship-0", "ship-1", "berth-0", "berth-1"]
         for n in names:
             self.assertIn(n, bpy.data.objects)
+
+    def test_lights_say_if_they_cast_shadows(self):
+        club = load()
+        club.build()
+        lights = [o for o in bpy.data.objects if o.type == "LIGHT"]
+        self.assertTrue(all("shadow" in o for o in lights))
+        # A browser runs out of texture slots with too many shadow lights.
+        self.assertLessEqual(sum(1 for o in lights if o["shadow"]), 8)
 
 
 if __name__ == "__main__":
