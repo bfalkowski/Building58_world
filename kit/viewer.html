@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scene viewer</title>
+<style>
+  :root { --bg: #050608; --ink: #c9c3b4; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 13px/1.4 Georgia, serif; overflow: hidden; }
+  #help { position: fixed; left: 16px; bottom: 16px; opacity: .75; }
+  #fill { position: fixed; right: 16px; bottom: 16px; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="help">Drag to turn. Scroll to move in. Right-drag to slide. Scene: <span id="name"></span></div>
+<div id="fill"><label>Lamps <input id="lamps" type="range" min="-4" max="0" step="0.05" value="-2.8"></label> <label>Fill <input id="amb" type="range" min="0" max="1" step="0.01" value="0.08"></label></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// Which scene: viewer.html?scene=desk loads out/desk.glb.
+const name = new URLSearchParams(location.search).get('scene') || 'desk';
+document.getElementById('name').textContent = name;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.toneMapping = THREE.AgXToneMapping;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050608);
+scene.fog = new THREE.FogExp2(0x0a0d12, 0.08);
+const ambient = new THREE.AmbientLight(0x8090b0, 0.08);
+scene.add(ambient);
+document.getElementById('amb').oninput = (e) => { ambient.intensity = Number(e.target.value); };
+// Blender's light strengths come out far stronger than three.js expects, so every lamp is scaled
+// by one factor, 10 to the slider's power.
+const lamps = [];
+const setLamps = () => { const k = 10 ** Number(document.getElementById('lamps').value); for (const l of lamps) l.intensity = l.userData.base * k; };
+document.getElementById('lamps').oninput = setLamps;
+
+let camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.05, 100);
+camera.position.set(-1.5, 1.6, 2.3);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0.5, 0.9, -1);
+controls.enableDamping = true;
+
+const composer = new EffectComposer(renderer);
+const pass = new RenderPass(scene, camera);
+composer.addPass(pass);
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.6, 0.5, 0.85));
+composer.addPass(new OutputPass());
+
+new GLTFLoader().load(`../out/${name}.glb`, (gltf) => {
+  gltf.scene.traverse((o) => {
+    if (o.isMesh) { o.castShadow = o.receiveShadow = true; }
+    if (o.isLight) { o.userData.base = o.intensity; lamps.push(o); o.castShadow = true; o.shadow.bias = -0.0005; o.shadow.mapSize.set(1024, 1024); }
+  });
+  scene.add(gltf.scene);
+  setLamps();
+  // Start where the scene's own camera stands, looking where it looks.
+  const cam = gltf.cameras[0];
+  if (cam) {
+    cam.updateWorldMatrix(true, false);
+    camera.position.setFromMatrixPosition(cam.matrixWorld);
+    const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.getWorldQuaternion(new THREE.Quaternion()));
+    controls.target.copy(camera.position).addScaledVector(dir, 3);
+    camera.fov = cam.fov;
+    camera.updateProjectionMatrix();
+  }
+});
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+});
+renderer.setAnimationLoop(() => { controls.update(); composer.render(); });
+</script>
+</body>
+</html>
