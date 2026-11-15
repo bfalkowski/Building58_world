@@ -19,7 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import bpy  # noqa: E402
-from kit.build import aim, box, cone, cylinder, figure, group, haze, light, marker, material, sphere, text  # noqa: E402
+from kit.build import aim, box, cone, cylinder, figure, group, haze, hull, hull_width, join, light, marker, material, rod, sphere, text  # noqa: E402
 from kit.export import export  # noqa: E402
 from kit.render import empty_scene, render  # noqa: E402
 
@@ -28,6 +28,7 @@ CLUB = "THE BLUE LANTERN"
 OFFICE_DOOR = "HOUSE DETECTIVE"
 MACHINE = "WAMAC No. 9"
 REGULARS = 12
+DRESSES = {1, 6, 7, 11}  # the regulars, by number, who wear a dress
 W, D, H = 14.0, 10.0, 3.6  # the room: x from -7 to 7, y from -5 to 5, height
 WINDOW = (-0.7, 2.4, 0.9, 2.9)  # the harbor window in the left wall: y from, y to, z from, z to
 QUAY = -16.0  # the quay's edge, west of the club. The water starts here.
@@ -59,13 +60,18 @@ def materials():
         "brick": material("brick", (0.12, 0.06, 0.05), rough=0.9),
         "water": material("water", (0.01, 0.02, 0.035), rough=0.08, metal=0.3),
         "hull": material("hull", (0.04, 0.04, 0.05), rough=0.5),
-        "hull band": material("hull band", (0.35, 0.05, 0.04), rough=0.6),
         "ship white": material("ship white", (0.55, 0.53, 0.48), rough=0.7),
         "funnel": material("funnel", (0.05, 0.05, 0.05), rough=0.6),
         "funnel band": material("funnel band", (0.6, 0.4, 0.1), rough=0.5),
         "porthole": material("porthole", (1.0, 0.8, 0.5), emit=(1.0, 0.75, 0.4), strength=4),
         "mast light": material("mast light", (1.0, 0.95, 0.85), emit=(1.0, 0.95, 0.85), strength=8),
         "red light": material("red light", (1.0, 0.1, 0.05), emit=(1.0, 0.1, 0.05), strength=8),
+        "hull bottom": material("hull bottom", (0.35, 0.05, 0.04), rough=0.6),
+        "deck": material("deck", (0.3, 0.22, 0.14), rough=0.8),
+        "tarp": material("tarp", (0.15, 0.17, 0.1), rough=0.95),
+        "mast": material("mast", (0.4, 0.33, 0.25), rough=0.7),
+        "rope": material("rope", (0.2, 0.18, 0.15), rough=0.9),
+        "green light": material("green light", (0.1, 1.0, 0.2), emit=(0.1, 1.0, 0.2), strength=8),
         "crane": material("crane", (0.25, 0.18, 0.06), rough=0.7, metal=0.4),
     }
 
@@ -73,10 +79,18 @@ def materials():
 def people_mats(i):
     coats = [(0.05, 0.05, 0.06), (0.18, 0.15, 0.12), (0.08, 0.06, 0.1), (0.25, 0.22, 0.2), (0.04, 0.06, 0.05), (0.15, 0.03, 0.03)]
     skins = [(0.6, 0.42, 0.32), (0.35, 0.22, 0.15), (0.75, 0.58, 0.45), (0.2, 0.12, 0.08)]
+    dresses = [(0.35, 0.02, 0.05), (0.03, 0.08, 0.2), (0.05, 0.05, 0.05), (0.3, 0.25, 0.12)]
+    hairs = [(0.02, 0.015, 0.01), (0.25, 0.12, 0.05), (0.5, 0.38, 0.2), (0.35, 0.33, 0.3)]
+    ties = [(0.4, 0.05, 0.04), (0.1, 0.12, 0.3), (0.3, 0.25, 0.08)]
     return {
         "coat": material(f"coat {i % 6}", coats[i % 6], rough=0.8),
         "skin": material(f"skin {i % 4}", skins[i % 4], rough=0.6),
         "hat": material(f"hat {i % 3}", [(0.05, 0.05, 0.05), (0.2, 0.17, 0.13), (0.1, 0.08, 0.06)][i % 3], rough=0.9),
+        "dress": material(f"dress {i % 4}", dresses[i % 4], rough=0.5),
+        "hair": material(f"hair {i % 4}", hairs[i % 4], rough=0.7),
+        "tie": material(f"tie {i % 3}", ties[i % 3], rough=0.5),
+        "shirt": material("shirt", (0.75, 0.73, 0.68), rough=0.7),
+        "shoe": material("shoe", (0.02, 0.015, 0.01), rough=0.3),
     }
 
 
@@ -99,8 +113,8 @@ def room(m):
         box(f"harbor window bar {k}", (0.08, 0.06, z1 - z0), (-W / 2, y0 + k * (y1 - y0) / 3, (z0 + z1) / 2), m["wood"])
     box("harbor window cross", (0.08, y1 - y0, 0.06), (-W / 2, (y0 + y1) / 2, (z0 + z1) / 2 + 0.3), m["wood"])
     box("wall right", (0.2, D, H), (W / 2, 0, H / 2), m["wall"])
-    for x in (-6.4, 2.4):
-        box(f"column {x}", (0.35, 0.35, H), (x, 1.2, H / 2), m["wood"])
+    for x, y in ((-6.4, 2.65), (2.4, 1.2)):  # the left column stands beside the harbor window
+        box(f"column {x}", (0.35, 0.35, H), (x, y, H / 2), m["wood"])
 
 
 def bar(m):
@@ -212,26 +226,86 @@ def street_door(m):
     marker("spot-door", (x + 0.6, y, 0.0), turn=math.pi / 2)
 
 
+SHIP = (16.0, 3.2)  # a ship's length and beam, in meters
+DECK = 0.9  # deck height over the quay top; the water is at -1.25
+
+
+def deck_at(t):
+    """The height of the deck at t, from stern (-1) to bow (1). It rises toward the bow."""
+    return DECK + 0.5 * max(0.0, t - 0.3) ** 2 + 0.15 * max(0.0, -t - 0.8)
+
+
 def ship(m, k, at):
-    """One cargo ship at its berth, bow to the north, as a group "ship-<k>" a viewer can sail away.
-    A plain hull, a deck house at the stern, a funnel, two masts with lights, and lit portholes."""
-    parts = [
-        box(f"ship {k} hull", (2.6, 11.0, 2.4), (0, 0, -0.2), m["hull"]),
-        box(f"ship {k} bow", (1.84, 1.84, 2.4), (0, 5.5, -0.2), m["hull"], rot=(0, 0, math.pi / 4)),
-        box(f"ship {k} deck line", (2.62, 11.0, 0.12), (0, 0, 0.95), m["hull band"]),
-        box(f"ship {k} house", (2.2, 3.0, 1.7), (0, -3.0, 1.85), m["ship white"]),
-        box(f"ship {k} bridge", (2.3, 1.2, 0.8), (0, -2.0, 3.1), m["ship white"]),
-        box(f"ship {k} bridge windows", (2.32, 0.02, 0.25), (0, -1.39, 3.2), m["porthole"]),
-        cylinder(f"ship {k} funnel", 0.4, 1.8, (0, -3.6, 3.6), m["funnel"], verts=16),
-        cylinder(f"ship {k} funnel band", 0.41, 0.3, (0, -3.6, 4.2), m["funnel band"], verts=16),
-    ]
+    """One cargo steamer at its berth, bow to the north, as a group "ship-<k>" a viewer can sail
+    away. A shaped hull with red bottom paint, a wooden deck with rails, two cargo hatches, two masts
+    with cargo booms and rigging, a deck house and bridge at the stern with lit windows, lifeboats,
+    a raked funnel, lit portholes, a red and a green running light, and lights at the mastheads."""
+    L, B = SHIP
+    p = []
+    p.append(hull(f"ship {k} hull", L, B, DECK, -2.2, -1.0, (m["hull"], m["hull bottom"], m["deck"])))
+    # Rails along both sides: posts, and a top rail from post to post.
     for side in (-1, 1):
-        parts.append(box(f"ship {k} portholes {side}", (0.02, 7.5, 0.12), (side * 1.31, 0.6, 0.45), m["porthole"]))
-    for n, y in enumerate((3.2, -5.0)):
-        parts.append(cylinder(f"ship {k} mast {n}", 0.05, 4.5, (0, y, 3.1), m["steel"], verts=8))
-        parts.append(sphere(f"ship {k} mast light {n}", 0.09, (0, y, 5.4), m["mast light"]))
-    g = group(f"ship-{k}", parts, at)
-    lamp = light("POINT", (0, 0, 3.6), 80, color=(1.0, 0.85, 0.6), size=0.2, shadow=False)
+        prev = None
+        for i in range(17):
+            t = -0.94 + i * 0.115
+            x, y, z = side * (B / 2 * hull_width(t) - 0.05), t * L / 2, deck_at(t)
+            p.append(rod(f"ship {k} rail post {side} {i}", (x, y, z), (x, y, z + 0.55), 0.018, m["ship white"], verts=6))
+            if prev:
+                p.append(rod(f"ship {k} rail {side} {i}", prev, (x, y, z + 0.55), 0.02, m["ship white"], verts=6))
+            prev = (x, y, z + 0.55)
+        # Round portholes along the hull, lit from inside.
+        for i in range(9):
+            y = -5.5 + i * 1.1
+            p.append(cylinder(f"ship {k} porthole {side} {i}", 0.08, 0.04, (side * (B / 2 - 0.02), y, 0.35), m["porthole"], rot=(0, math.pi / 2, 0), verts=12))
+    for n, y in enumerate((3.8, 0.2)):  # cargo hatches with canvas covers
+        p.append(box(f"ship {k} hatch {n}", (1.9, 2.2, 0.45), (0, y, DECK + 0.22), m["hull"]))
+        p.append(box(f"ship {k} hatch cover {n}", (1.95, 2.25, 0.08), (0, y, DECK + 0.48), m["tarp"]))
+    # The deck house and the bridge over it, at the stern.
+    p.append(box(f"ship {k} house", (2.6, 3.4, 1.7), (0, -4.6, DECK + 0.85), m["ship white"]))
+    p.append(box(f"ship {k} bridge", (2.8, 1.5, 0.95), (0, -3.6, DECK + 2.17), m["ship white"]))
+    p.append(box(f"ship {k} bridge wings", (3.8, 0.7, 0.08), (0, -3.2, DECK + 1.75), m["ship white"]))
+    p.append(box(f"ship {k} bridge roof", (3.0, 1.7, 0.08), (0, -3.6, DECK + 2.68), m["hull"]))
+    p.append(box(f"ship {k} bridge windows", (2.4, 0.02, 0.3), (0, -2.84, DECK + 2.3), m["porthole"]))
+    for side in (-1, 1):
+        for i in range(4):
+            p.append(box(f"ship {k} house window {side} {i}", (0.02, 0.22, 0.22), (side * 1.31, -5.9 + i * 0.8, DECK + 1.0), m["porthole"]))
+        # Lifeboats on the house roof, each under a pair of davits.
+        for n, y in enumerate((-4.4, -5.7)):
+            bx = side * 1.15
+            p.append(sphere(f"ship {k} lifeboat {side} {n}", 0.3, (bx, y, DECK + 2.0), m["ship white"], scale=(1, 2.1, 0.75)))
+            for dy in (-0.45, 0.45):
+                p.append(rod(f"ship {k} davit {side} {n} {dy}", (side * 0.75, y + dy, DECK + 1.7), (bx, y + dy, DECK + 2.45), 0.03, m["steel"], verts=6))
+    p.append(sphere(f"ship {k} port light", 0.07, (-1.85, -3.2, DECK + 1.85), m["red light"]))
+    p.append(sphere(f"ship {k} starboard light", 0.07, (1.85, -3.2, DECK + 1.85), m["green light"]))
+    # A raked funnel with a colored band and a black top.
+    funnel = [cylinder(f"ship {k} funnel", 0.45, 2.1, (0, -5.3, DECK + 2.7), m["funnel"], verts=20),
+              cylinder(f"ship {k} funnel band", 0.46, 0.4, (0, -5.3, DECK + 3.1), m["funnel band"], verts=20),
+              cylinder(f"ship {k} funnel top", 0.465, 0.25, (0, -5.3, DECK + 3.65), m["hull"], verts=20)]
+    for f in funnel:
+        f.rotation_euler = (-0.12, 0, 0)
+    p += funnel
+    # Two masts, each with a cross tree, a masthead light and a cargo boom over its hatch.
+    tops = []
+    for n, (y, hgt) in enumerate(((5.6, 6.5), (1.9, 7.0))):
+        base, top = (0, y, DECK), (0, y, DECK + hgt)
+        tops.append(top)
+        p.append(rod(f"ship {k} mast {n}", base, top, 0.08, m["mast"], verts=10))
+        p.append(rod(f"ship {k} cross tree {n}", (-0.9, y, DECK + hgt - 1.2), (0.9, y, DECK + hgt - 1.2), 0.035, m["mast"], verts=6))
+        p.append(sphere(f"ship {k} masthead light {n}", 0.1, (0, y, DECK + hgt + 0.08), m["mast light"]))
+        hatch = 3.8 if n == 0 else 0.2
+        p.append(rod(f"ship {k} boom {n}", (0, y, DECK + 0.9), (0, hatch + (y - hatch) * 0.2, DECK + 3.4), 0.05, m["mast"], verts=6))
+    # Rigging: stays from the mastheads to the stem, between the masts, and down to the stern.
+    rope = m["rope"]
+    p.append(rod(f"ship {k} forestay", tops[0], (0, L / 2 - 0.1, deck_at(0.99) + 0.3), 0.015, rope, verts=4))
+    p.append(rod(f"ship {k} triatic stay", tops[0], tops[1], 0.015, rope, verts=4))
+    p.append(rod(f"ship {k} backstay", tops[1], (0, -3.6, DECK + 2.7), 0.015, rope, verts=4))
+    for side in (-1, 1):
+        for n, top in enumerate(tops):
+            y = top[1]
+            p.append(rod(f"ship {k} shroud {side} {n}", (side * 0.9, y, top[2] - 1.2), (side * (B / 2 - 0.1), y - 0.6, DECK + 0.1), 0.012, rope, verts=4))
+    p.append(box(f"ship {k} anchor", (0.05, 0.4, 0.55), (B / 2 * hull_width(0.85) + 0.03, 0.85 * L / 2, 0.3), m["hull"]))
+    g = group(f"ship-{k}", [join(f"ship {k} body", p)], at)
+    lamp = light("POINT", (0, -3.0, DECK + 3.2), 80, color=(1.0, 0.85, 0.6), size=0.2, shadow=False)
     lamp.name = f"ship-{k}-light"
     lamp.parent = g
     return g
@@ -261,10 +335,12 @@ def harbor(m):
         light("POINT", (QUAY + 1.5, y, 4.0), 250, color=(1.0, 0.75, 0.45), size=0.2, shadow=False)
     for n, (x, y) in enumerate([(-70, -20), (-85, 15), (-60, 30), (-95, -5)]):
         sphere(f"anchored ship light {n}", 0.25, (x, y, 2.0), m["mast light"])
-    marker("berth-0", (QUAY - 2.6, 1.0, 0.0))
-    marker("berth-1", (QUAY - 2.6, -9.0, 0.0))
-    ship(m, 0, (QUAY - 2.6, 1.0, 0.0))
-    ship(m, 1, (QUAY - 2.6, -9.0, 0.0))
+    # Berth 0 is along the quay. Berth 1 is out in the harbor, at a mooring buoy.
+    berths = [(QUAY - SHIP[1] / 2 - 0.3, 4.0, 0.0), (QUAY - 16.0, -8.0, 0.0)]
+    cylinder("mooring buoy", 0.5, 0.8, (QUAY - 16.0, 1.5, -1.1), m["hull bottom"], verts=16)
+    for k, at in enumerate(berths):
+        marker(f"berth-{k}", at)
+        ship(m, k, at)
 
 
 def regular_groups(m):
@@ -279,8 +355,10 @@ def regular_groups(m):
         mats = people_mats(k - 1)
         spot, sitting = homes[rid]
         home = bpy.data.objects[spot]
-        sit = group(f"regular-{rid}-sit", figure(f"regular {k} sitting", (0, 0, 0), mats, sitting=True, hat=k % 3 != 2))
-        stand = group(f"regular-{rid}-stand", figure(f"regular {k} standing", (0, 0, 0), mats, sitting=False, hat=k % 3 != 2))
+        dress = k in DRESSES
+        hat = not dress and k % 3 != 2
+        sit = group(f"regular-{rid}-sit", figure(f"regular {k} sitting", (0, 0, 0), mats, sitting=True, hat=hat, dress=dress))
+        stand = group(f"regular-{rid}-stand", figure(f"regular {k} standing", (0, 0, 0), mats, sitting=False, hat=hat, dress=dress))
         shown, hidden = (sit, stand) if sitting else (stand, sit)
         shown.location, shown.rotation_euler = home.location.copy(), home.rotation_euler.copy()
         hidden.location = (0, -20, 0)  # parked out of sight; a viewer moves it in when needed

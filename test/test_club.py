@@ -42,6 +42,18 @@ class ClubScene(unittest.TestCase):
         for n in names:
             self.assertIn(n, bpy.data.objects)
 
+    def test_each_figure_and_ship_is_one_mesh(self):
+        club = load()
+        club.build()
+        # A browser draws one object in one go. Joined parts keep the room fast.
+        for k in range(1, club.REGULARS + 1):
+            for pose in ("sit", "stand"):
+                self.assertEqual(len(bpy.data.objects[f"regular-R{k}-{pose}"].children), 1)
+        for k in range(2):
+            meshes = [c for c in bpy.data.objects[f"ship-{k}"].children if c.type == "MESH"]
+            self.assertEqual(len(meshes), 1)
+            self.assertGreater(len(meshes[0].data.polygons), 1000)
+
     def test_lights_say_if_they_cast_shadows(self):
         club = load()
         club.build()

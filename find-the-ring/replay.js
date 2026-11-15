@@ -388,7 +388,7 @@ export default async function replay({ THREE, root, camera, controls, params, on
   $('harbor').onclick = () => {
     $('follow').checked = false;
     camera.position.set(-4.6, 1.9, -0.85);
-    controls.target.set(-20, 1.2, 1.5);
+    controls.target.set(-22, 1.5, 1.5);
   };
   $('watch').onchange = () => { setActive(watching() ? byId[watching()] : null); listRecords(); };
   $('play').onclick = () => {
